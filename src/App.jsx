@@ -37,6 +37,51 @@ export default function App() {
     setIsLanguageMenuOpen(false);
   };
 
+    const handleGenerateNFRs = () => {
+    if (!functionalRequirements) {
+      showToast('Please enter functional requirements first.', 'warning');
+      return;
+    }
+    setIsNfrLoading(true);
+    showToast('✨ Generating NFRs with Gemini...', 'info');
+
+    const prompt = `Based on the following functional requirements, generate a list of key non-functional requirements (NFRs). List each NFR on a new line without any prefixes like bullet points or numbers.\n\nFunctional Requirements:\n${functionalRequirements}`;
+
+    callGemini(prompt, (text, error) => {
+      setIsNfrLoading(false);
+      if (error) {
+        showToast(error, 'error');
+      } else if (text) {
+        setNonFunctionalRequirements(text.split('\n').filter((l) => l.trim() !== ''));
+        showToast('NFRs generated successfully!', 'success');
+      }
+    });
+  };
+
+  const handleRunCode = async () => {
+    if (!code) return;
+    try {
+      setIsLoading(true);
+      const data = await executeCode(language, code);
+      // Piston typically returns run or output on its object; adjust as needed
+      const run = data.run || {};
+      const out = run.output ?? run.stdout ?? '';
+      const stderr = run.stderr ?? run.time ?? '';
+      if (out) {
+        setOutput(out.split('\n'));
+      } else if (run.output) {
+        setOutput(run.output.split('\n'));
+      } else {
+        setOutput([stderr || 'No output']);
+      }
+      setIsError(!!run.stderr);
+    } catch (err) {
+      showToast(err.message || 'Unable to run code', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCommit = () => {
     showToast('Triggering Code Review Agent...', 'info');
     setTimeout(() => {
