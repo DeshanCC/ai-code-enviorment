@@ -13,6 +13,14 @@ export default function EditorPanel({
 }) {
   const editorRef = useRef(null);
 
+  function handleEditorDidMount(_, editor) {
+    editorRef.current = editor;
+    // Ensure value sync
+    editor.onDidChangeModelContent(() => {
+      setValue(editor.getValue());
+    });
+  }
+
   useEffect(() => {
     if (editorRef.current) {
       // change language later is handled by prop change in Editor component
@@ -53,6 +61,7 @@ export default function EditorPanel({
           defaultValue={value}
           value={value}
           theme="vs-dark"
+          onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },
             automaticLayout: true,
