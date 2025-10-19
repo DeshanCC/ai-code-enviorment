@@ -1,4 +1,3 @@
-// src/components/EditorPanel.jsx
 import React, { useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 
