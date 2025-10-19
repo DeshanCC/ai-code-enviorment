@@ -12,13 +12,14 @@ export default function EditorPanel({
 }) {
   const editorRef = useRef(null);
 
-  function handleEditorDidMount(_, editor) {
-    editorRef.current = editor;
-    // Ensure value sync
+ function handleEditorDidMount(editor, monaco) {
+    // now editor is the actual editor instance ✅
     editor.onDidChangeModelContent(() => {
-      setValue(editor.getValue());
+    setValue(editor.getValue());
+    console.log(editor.getValue());
     });
   }
+
 
   useEffect(() => {
     if (editorRef.current) {
