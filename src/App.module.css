@@ -1,0 +1,17 @@
+.appContainer {
+  padding: 1rem;
+  min-height: 100vh;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 2.5fr 1fr; /* Defines the 3 columns */
+  gap: 1rem;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 768px) {
+  .mainGrid {
+    grid-template-columns: 1fr; /* Stack columns on top of each other */
+  }
+}

@@ -6,6 +6,7 @@ import RequirementsPanel from './components/RequirementsPanel';
 import EditorPanel from './components/EditorPanel';
 import ActionsPanel from './components/ActionsPanel';
 import Toast from './components/Toast';
+import styles from './App.module.css';
 
 const LANGS = Object.keys(LANGUAGE_VERSIONS);
 
@@ -123,9 +124,9 @@ export default function App() {
   }, [code]);
 
   return (
-    <div className="text-gray-300 p-6 bg-[#0f0a19] min-h-screen">
+    <div className={styles.appContainer}>
       {toast && <Toast message={toast.message} status={toast.status} onClose={() => setToast(null)} />}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className={styles.mainGrid}>
         <RequirementsPanel
           functionalRequirements={functionalRequirements}
           setFunctionalRequirements={setFunctionalRequirements}

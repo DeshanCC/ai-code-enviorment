@@ -1,10 +1,12 @@
+// src/components/Toast.jsx
 import React, { useEffect } from 'react';
+import styles from './Toast.module.css';
 
-const colors = {
-  info: 'bg-blue-500',
-  success: 'bg-green-500',
-  warning: 'bg-yellow-500',
-  error: 'bg-red-500',
+const statusStyles = {
+  info: styles.info,
+  success: styles.success,
+  warning: styles.warning,
+  error: styles.error,
 };
 
 export default function Toast({ message, status = 'info', onClose }) {
@@ -13,8 +15,11 @@ export default function Toast({ message, status = 'info', onClose }) {
     return () => clearTimeout(t);
   }, [onClose]);
 
+  // Combine the base toast class with the specific status class
+  const toastClassName = `${styles.toast} ${statusStyles[status] || styles.info}`;
+
   return (
-    <div className={`fixed top-5 right-5 text-white px-6 py-3 rounded-lg shadow-lg ${colors[status] || 'bg-gray-500'}`}>
+    <div className={toastClassName}>
       <p>{message}</p>
     </div>
   );

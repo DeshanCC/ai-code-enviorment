@@ -1,0 +1,56 @@
+.panel {
+  background-color: #161b22;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+}
+
+.textArea {
+  width: 100%;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.5rem;
+  height: 9rem;
+  resize: none;
+  color: #c9d1d9;
+}
+
+.textArea:focus {
+  outline: 2px solid #8b5cf6;
+}
+
+.button {
+  width: 100%;
+  background-color: #8b5cf6;
+  color: white;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.button:hover {
+  background-color: #7c3aed;
+}
+
+.nfrContainer {
+  background-color: #0d1117;
+  border-radius: 6px;
+  min-height: 200px;
+  border: 1px solid #30363d;
+  flex-grow: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+}

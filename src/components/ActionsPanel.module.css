@@ -1,0 +1,97 @@
+/* src/components/ActionsPanel.module.css */
+.panel {
+  background-color: #161b22;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.buttonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.button {
+  color: white;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.commitButton {
+  background-color: #238636;
+}
+.mergeButton {
+  background-color: #1f6feb;
+}
+.riskButton {
+  background-color: #f5732c;
+  grid-column: 1 / -1; /* Span across both columns */
+}
+
+.runButton {
+  width: 100%;
+  border: 2px solid #238636;
+  color: #238636;
+  background: none;
+  margin-bottom: 1rem;
+}
+.runButton:hover {
+  background-color: #238636;
+  color: white;
+}
+
+.tabsContainer {
+  border-bottom: 1px solid #30363d;
+  display: flex;
+  gap: 1rem;
+}
+
+.tabButton {
+  padding: 0.5rem 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.activeTab {
+  color: #8b5cf6;
+  border-bottom-color: #8b5cf6;
+}
+
+.tabContent {
+  padding-top: 1rem;
+  flex-grow: 1;
+  background-color: #0d1117;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.outputArea {
+  height: 100%;
+  padding: 0.5rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.errorText {
+  color: #f85149;
+}
