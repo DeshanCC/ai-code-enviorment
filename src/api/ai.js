@@ -1,6 +1,6 @@
 export async function callGemini(prompt, onDone) {
 
-  const apiKey = 'AIzaSyC8CXrC6ASnbi3aQPkOEQ_SefkIPn4BnPc'; 
+  const apiKey = ''; 
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
   const payload = {
