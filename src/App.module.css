@@ -9,9 +9,25 @@
   gap: 1rem;
 }
 
+.developerNameDisplay {
+  text-align: right;
+  font-size: 0.9rem;
+  color: #c9d1d9;
+  margin-bottom: 0.5rem; /* Space above the actions panel */
+  padding: 0.5rem 0.25rem;
+}
+
+.developerNameDisplay strong {
+  color: #58a6ff; /* A highlight color */
+  font-weight: 600;
+}
+
 /* Responsive layout for smaller screens */
 @media (max-width: 768px) {
   .mainGrid {
     grid-template-columns: 1fr; /* Stack columns on top of each other */
+  }
+  .developerNameDisplay {
+    text-align: left; /* Adjust alignment for stacked view */
   }
 }

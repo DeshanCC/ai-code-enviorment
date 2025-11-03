@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CODE_SNIPPETS, LANGUAGE_VERSIONS } from './constants';
 import { executeCode } from './api/piston';
 import { callGemini } from './api/ai';
@@ -6,6 +6,7 @@ import RequirementsPanel from './components/RequirementsPanel';
 import EditorPanel from './components/EditorPanel';
 import ActionsPanel from './components/ActionsPanel';
 import Toast from './components/Toast';
+import DeveloperLogin from './components/DeveloperLogin'; // Import new component
 import styles from './App.module.css';
 
 const LANGS = Object.keys(LANGUAGE_VERSIONS);
@@ -24,6 +25,23 @@ export default function App() {
   const [metrics, setMetrics] = useState([]);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Output');
+  
+  // New state for developer name
+  const [developerName, setDeveloperName] = useState(null);
+
+  // Check session storage on app load
+  useEffect(() => {
+    const storedName = sessionStorage.getItem('developerName');
+    if (storedName) {
+      setDeveloperName(storedName);
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Callback function to handle login
+  const handleLogin = useCallback((name) => {
+    sessionStorage.setItem('developerName', name);
+    setDeveloperName(name);
+  }, []); // This function doesn't need dependencies
 
   const showToast = (message, status = 'info') => {
     setToast({ message, status, id: Date.now() });
@@ -123,6 +141,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, [code]);
 
+  // Gating check: If no developer name, show the login modal
+  if (!developerName) {
+    return <DeveloperLogin onLogin={handleLogin} />;
+  }
+
+  // Once logged in, show the main app
   return (
     <div className={styles.appContainer}>
       {toast && <Toast message={toast.message} status={toast.status} onClose={() => setToast(null)} />}
@@ -143,21 +167,28 @@ export default function App() {
           isLanguageMenuOpen={isLanguageMenuOpen}
           setIsLanguageMenuOpen={setIsLanguageMenuOpen}
           languages={LANGS}
+          showToast={showToast} // Pass showToast to EditorPanel
         />
 
-        <ActionsPanel
-          handleCommit={handleCommit}
-          handleMerge={handleMerge}
-          handleCalculateRisk={handleCalculateRisk}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          handleRunCode={handleRunCode}
-          isLoading={isLoading}
-          isError={isError}
-          output={output}
-          suggestions={suggestions}
-          metrics={metrics}
-        />
+        {/* Wrapper div for the 3rd column to include the developer name */}
+        <div>
+          <div className={styles.developerNameDisplay}>
+            Developer: <strong>{developerName}</strong>
+          </div>
+          <ActionsPanel
+            handleCommit={handleCommit}
+            handleMerge={handleMerge}
+            handleCalculateRisk={handleCalculateRisk}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            handleRunCode={handleRunCode}
+            isLoading={isLoading}
+            isError={isError}
+            output={output}
+            suggestions={suggestions}
+            metrics={metrics}
+          />
+        </div>
       </div>
     </div>
   );
