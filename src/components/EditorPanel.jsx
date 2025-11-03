@@ -21,6 +21,7 @@ export default function EditorPanel({
   const cachedSuggestionsRef = useRef([]);
   const isFetchingRef = useRef(false);
   const fetchVersionRef = useRef(0); // token to avoid stale overwrites
+  const languageRef = useRef(language);
 
   /* -----------------------------
      Helpers: comment & context detection
@@ -76,7 +77,7 @@ export default function EditorPanel({
     }
 
     // Be explicit about strict JSON-only response and maximum suggestions to simplify parsing.
-    return `You are a strict code completion assistant.
+    return `You are a strict, non-verbose code completion assistant.
 CONTEXT (${language}):
 \`\`\`${language}
 ${context}
@@ -88,13 +89,17 @@ POSITION: Line ${position.lineNumber}, Column ${position.column}
 TASK: ${instruction}
 
 RESPONSE_FORMAT:
-Return ONLY a JSON array (no explanation, no markdown). Max 5 items.
-Each item: {
-  "label": "short label shown in autocomplete",
-  "insertText": "exact text to insert at cursor",
-  "detail": "brief one-line explanation",
-  "kind": "method|property|function|variable|keyword"
-}
+You MUST respond with ONLY a valid JSON array (no explanation, no markdown, no other keys, no "reasoning" fields).
+Your entire response must start with '[' and end with ']'.
+Return a maximum of 5 items.
+[
+  {
+    "label": "short label shown in autocomplete",
+    "insertText": "exact text to insert at cursor",
+    "detail": "brief one-line explanation",
+    "kind": "method|property|function|variable|keyword"
+  }
+]
 `;
   }, []);
 
@@ -252,7 +257,7 @@ Each item: {
 
     isFetchingRef.current = true;
     const currentFetchToken = ++fetchVersionRef.current;
-    console.log('🔄 Fetching AI completions... token=', currentFetchToken);
+    console.log('🔄 Fetching AI completions... token=', currentFetchToken, 'lang=', language);
 
     try {
       const result = await getAICompletions(code, position, language);
@@ -284,24 +289,59 @@ Each item: {
         constant: monaco.languages.CompletionItemKind.Constant,
       };
 
-      const word = editor.getModel().getWordUntilPosition(position);
-      const range = {
-        startLineNumber: position.lineNumber,
-        endLineNumber: position.lineNumber,
-        startColumn: word ? word.startColumn : position.column,
-        endColumn: word ? word.endColumn : position.column,
-      };
+      // Check if we're in a comment to decide insert behavior
+      const insideComment = isCursorInsideComment(code, position);
+      const model = editor.getModel();
+      const currentLine = model.getLineContent(position.lineNumber);
+      const indentationMatch = currentLine.match(/^\s*/);
+      const indentation = indentationMatch ? indentationMatch[0] : '';
+      
+      let range;
+      
+      if (insideComment) {
+        // If in a comment, we want to insert on the *next* line.
+        // Set the range to the *end* of the current line.
+        range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: model.getLineMaxColumn(position.lineNumber), // End of the current line
+          endColumn: model.getLineMaxColumn(position.lineNumber),   // End of the current line
+        };
+      } else {
+        // Original logic for in-line completion
+        const word = model.getWordUntilPosition(position);
+        range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word ? word.startColumn : position.column,
+          endColumn: word ? word.endColumn : position.column,
+        };
+      }
 
       // convert to Monaco suggestions
-      cachedSuggestionsRef.current = processed.map((s, idx) => ({
-        label: s.label,
-        kind: kindMap[s.kind] || monaco.languages.CompletionItemKind.Text,
-        detail: s.detail,
-        insertText: s.insertText,
-        range,
-        documentation: s.detail,
-        sortText: `${String(1000 - s.score).padStart(4, '0')}_${idx}` // better sort by score (lower sortText appears first)
-      }));
+      cachedSuggestionsRef.current = processed.map((s, idx) => {
+        
+        // Adjust insertText if it's a comment-based generation
+        let finalInsertText = s.insertText;
+        if (insideComment) {
+          // Add indentation to each new line of the snippet
+          const indentedSnippet = s.insertText
+            .split('\n')
+            .map(line => line.trim().length > 0 ? indentation + line : line) // Apply indent
+            .join('\n');
+          finalInsertText = '\n' + indentedSnippet; // Add a newline *before*
+        }
+
+        return {
+          label: s.label,
+          kind: kindMap[s.kind] || monaco.languages.CompletionItemKind.Text,
+          detail: s.detail,
+          insertText: finalInsertText,
+          range: range,
+          documentation: s.detail,
+          sortText: `${String(1000 - s.score).padStart(4, '0')}_${idx}` // better sort by score (lower sortText appears first)
+        };
+      });
 
       console.log('💾 Cached', cachedSuggestionsRef.current.length, 'suggestions');
       // trigger suggest only if the editor still has focus & we're at same position
@@ -319,7 +359,7 @@ Each item: {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [getAICompletions, processAndEnhanceSuggestions, showToast]);
+  }, [getAICompletions, processAndEnhanceSuggestions, showToast, isCursorInsideComment, buildPrompt, parseAIResponse]);
 
   /* -----------------------------
      Completion provider registration
@@ -412,7 +452,7 @@ Each item: {
       }
 
       cachedSuggestionsRef.current = [];
-      await fetchAndCacheSuggestions(code, position, language, monaco, editor);
+      await fetchAndCacheSuggestions(code, position, languageRef.current, monaco, editor);
       setTimeout(() => {
         try {
           editor.trigger('ai', 'editor.action.triggerSuggest', {});
@@ -428,7 +468,7 @@ Each item: {
       const position = editor.getPosition();
       const code = editor.getValue();
       cachedSuggestionsRef.current = [];
-      await fetchAndCacheSuggestions(code, position, language, monaco, editor);
+      await fetchAndCacheSuggestions(code, position, languageRef.current, monaco, editor);
       setTimeout(() => {
         try {
           editor.trigger('ai', 'editor.action.triggerSuggest', {});
@@ -458,15 +498,16 @@ Each item: {
   }, []);
 
   React.useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+
+  React.useEffect(() => {
     if (monacoRef.current && editorRef.current) {
       cachedSuggestionsRef.current = [];
       registerCompletionProvider(monacoRef.current, editorRef.current);
     }
   }, [language, registerCompletionProvider]);
 
-  /* -----------------------------
-     Render
-     ----------------------------- */
   return (
     <div className={styles.panel}>
       <div className={styles.header}>

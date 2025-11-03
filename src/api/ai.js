@@ -1,10 +1,26 @@
+// 1. Get your free API key from https://console.groq.com/keys
+const apiKey = '';
+const apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
+
+// 2. Use the new "openai/gpt-oss-120b" model
+const model = 'openai/gpt-oss-120b';
+
 export async function callGemini(prompt, onDone) {
-
-  const apiKey = ''; 
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
+  if (!apiKey) {
+    onDone(null, 'Groq API key is missing from src/api/ai.js. Get one from https://console.groq.com/');
+    return;
+  }
+  
   const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
+    model: model, // Using the new gpt-oss model
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.3, 
+    max_tokens: 1024,
   };
 
   let retries = 3;
@@ -14,23 +30,35 @@ export async function callGemini(prompt, onDone) {
     try {
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`Status ${res.status}`);
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error('Groq API Error Body:', errBody);
+        throw new Error(`Status ${res.status} - ${res.statusText}`);
+      }
+
       const json = await res.json();
-      const candidate = json.candidates?.[0];
-      const text = candidate?.content?.parts?.[0]?.text ?? null;
+
+      const text = json.choices?.[0]?.message?.content ?? null;
+
       if (text) {
-        onDone(text);
+        onDone(text); 
         return;
       } else {
-        throw new Error('Invalid response structure');
+        console.warn('Invalid Groq response structure:', json);
+        throw new Error('Invalid Groq response structure');
       }
     } catch (err) {
+      console.error('Error calling Groq API:', err.message);
       retries--;
       if (retries === 0) {
-        onDone(null, 'Failed to get a response from the AI after multiple attempts.');
+        onDone(null, `Failed to get a response from Groq after ${3} attempts. Is your API key valid?`);
         return;
       }
       await new Promise((r) => setTimeout(r, delay));
