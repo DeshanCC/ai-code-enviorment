@@ -32,6 +32,7 @@ export default function App() {
   const [projectName, setProjectName] = useState(null);
   const [projectId, setProjectId] = useState(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
 
   useEffect(() => {
     const storedDevName = sessionStorage.getItem('developerName');
@@ -63,15 +64,12 @@ export default function App() {
 
   const handleProjectLogin = useCallback(async (newProjectName) => {
     setIsCreatingProject(true);
-
     const newProjectId = crypto.randomUUID();
 
     try {
-      const response = await fetch(`${API_BASE_URL}/create-project`, { 
+      const response = await fetch(`${API_BASE_URL}/create-project`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: newProjectId,
           name: newProjectName,
@@ -83,16 +81,12 @@ export default function App() {
         showToast(errorData.detail || 'Failed to create project.', 'error');
         throw new Error(errorData.detail || 'Failed to create project.');
       }
-
       sessionStorage.setItem('projectName', newProjectName);
       sessionStorage.setItem('projectId', newProjectId);
-
       showToast(`Project "${newProjectName}" created successfully!`, 'success');
-
       setProjectName(newProjectName);
       setProjectId(newProjectId);
       setLoginStep('done');
-
     } catch (err) {
       console.error('Project creation failed:', err);
       if (!err.message.includes('Failed to create project')) {
@@ -119,45 +113,35 @@ export default function App() {
     }
     setIsNfrLoading(true);
     showToast('✨ Generating NFRs with AI...', 'info');
-
     const frList = functionalRequirements.split('\n').filter(fr => fr.trim().length > 0);
-
     if (frList.length === 0) {
       showToast('No valid functional requirements entered.', 'warning');
       setIsNfrLoading(false);
       return;
     }
-
     const payload = {
       functional_requirements: frList,
       domain: "Web App", 
       project_id: projectId,
       save_to_db: false, 
     };
-
     try {
       const response = await fetch(`${API_BASE_URL}/nfr/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to generate NFRs.');
       }
-
       const data = await response.json();
-
       if (data && data.non_functional_requirements) {
         setNonFunctionalRequirements(data.non_functional_requirements); 
         showToast('NFRs generated successfully!', 'success');
       } else {
         throw new Error('Invalid response format from NFR generator.');
       }
-
     } catch (err) {
       console.error('NFR generation failed:', err);
       showToast(err.message || 'An unknown error occurred.', 'error');
@@ -190,16 +174,61 @@ export default function App() {
     }
   };
 
-  const handleCommit = () => {
-    showToast('Triggering Code Review Agent...', 'info');
-    setTimeout(() => {
-      setSuggestions([
-        "Suggestion: The function `greet` could be optimized for performance.",
-        "Style: Consider adding a JSDoc block for the `greet` function.",
-        "Security: Hardcoded string 'World' might be a vulnerability. Consider parameterizing."
-      ]);
+  const handleCommit = async () => {
+    if (isCommitting) return;
+    setIsCommitting(true);
+    showToast('Committing and starting code review...', 'info');
+
+    // (1) Get parent commit ID from session storage
+    const parentCommitId = sessionStorage.getItem('lastCommitId') || null;
+    
+    // (2) Generate new commit ID
+    const newCommitId = crypto.randomUUID();
+
+    const payload = {
+      parent_commit_id: parentCommitId,
+      commit_id: newCommitId,
+      project_id: projectId,
+      developer_name: developerName,
+      code_text: code,
+      language: language,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Commit failed.');
+      }
+
+      const data = await response.json();
+
+      // Show success toast
+      showToast('Commit successful! Review suggestions added.', 'success');
+
+      // Format suggestions for the UI
+      const formattedSuggestions = data.llm_review_suggestions.map(s => (
+        `[L${s.line_start}-${s.line_end} | ${s.severity}]: ${s.suggestion}`
+      ));
+
+      setSuggestions(formattedSuggestions);
       setActiveTab('Suggestions');
-    }, 1500);
+      
+      sessionStorage.setItem('lastCommitId', newCommitId);
+
+    } catch (err) {
+      console.error('Commit failed:', err);
+      showToast(err.message || 'An unknown error occurred.', 'error');
+    } finally {
+      setIsCommitting(false);
+    }
   };
 
   const handleCalculateRisk = () => {
@@ -216,6 +245,7 @@ export default function App() {
   const handleMerge = () => {
     showToast('Merge successful!', 'success');
     setSuggestions([]);
+    sessionStorage.removeItem('lastCommitId');
   };
 
   useEffect(() => {
@@ -282,7 +312,8 @@ export default function App() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             handleRunCode={handleRunCode}
-            isLoading={isLoading}
+            isLoading={isLoading} 
+            isCommitting={isCommitting}
             isError={isError}
             output={output}
             suggestions={suggestions}

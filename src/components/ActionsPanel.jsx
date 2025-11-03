@@ -10,6 +10,7 @@ export default function ActionsPanel({
   setActiveTab,
   handleRunCode,
   isLoading,
+  isCommitting,
   isError,
   output,
   suggestions,
@@ -27,7 +28,13 @@ export default function ActionsPanel({
   return (
     <div className={styles.panel}>
       <div className={styles.buttonGrid}>
-        <button onClick={handleCommit} className={`${styles.button} ${styles.commitButton}`}>Commit</button>
+        <button 
+          onClick={handleCommit} 
+          className={`${styles.button} ${styles.commitButton}`}
+          disabled={isCommitting}
+        >
+          {isCommitting ? 'Committing...' : 'Commit'}
+        </button>
         <button onClick={handleMerge} className={`${styles.button} ${styles.mergeButton}`}>Merge</button>
       </div>
       <button onClick={handleCalculateRisk} className={`${styles.button} ${styles.riskButton}`}>Calculate Risk</button>
@@ -42,7 +49,7 @@ export default function ActionsPanel({
           {activeTab === 'Output' && (
             <>
               <button onClick={handleRunCode} disabled={isLoading} className={`${styles.button} ${styles.runButton}`}>
-                {isLoading ? "..." : 'Run Code'}
+                {isLoading ? "Running..." : 'Run Code'}
               </button>
               <div className={`${styles.outputArea} ${isError ? styles.errorText : ''}`}>
                 {output ? output.map((line, i) => <pre key={i}>{line}</pre>) : <span>Click "Run Code" to see the output.</span>}
