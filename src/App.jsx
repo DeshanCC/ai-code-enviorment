@@ -1,22 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CODE_SNIPPETS, LANGUAGE_VERSIONS } from './constants';
 import { executeCode } from './api/piston';
-import { callGemini } from './api/ai';
 import RequirementsPanel from './components/RequirementsPanel';
 import EditorPanel from './components/EditorPanel';
 import ActionsPanel from './components/ActionsPanel';
 import Toast from './components/Toast';
-import DeveloperLogin from './components/DeveloperLogin'; 
-import ProjectLogin from './components/ProjectLogin'; 
+import DeveloperLogin from './components/DeveloperLogin';
+import ProjectLogin from './components/ProjectLogin';
 import styles from './App.module.css';
 
 const LANGS = Object.keys(LANGUAGE_VERSIONS);
-const PROJECT_API_BASE = 'http://127.0.0.1:8000';
+const API_BASE_URL = '/api'; 
 
 export default function App() {
   const [toast, setToast] = useState(null);
   const [functionalRequirements, setFunctionalRequirements] = useState('');
-  const [nonFunctionalRequirements, setNonFunctionalRequirements] = useState([]);
+  const [nonFunctionalRequirements, setNonFunctionalRequirements] = useState([]); 
   const [isNfrLoading, setIsNfrLoading] = useState(false);
   const [code, setCode] = useState(CODE_SNIPPETS.javascript);
   const [language, setLanguage] = useState('javascript');
@@ -58,7 +57,6 @@ export default function App() {
     setLoginStep('project'); 
   }, []);
 
-
   const showToast = (message, status = 'info') => {
     setToast({ message, status, id: Date.now() });
   };
@@ -69,7 +67,7 @@ export default function App() {
     const newProjectId = crypto.randomUUID();
 
     try {
-      const response = await fetch(PROJECT_API_BASE + "/create-project", {
+      const response = await fetch(`${API_BASE_URL}/create-project`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,23 +112,59 @@ export default function App() {
     setIsLanguageMenuOpen(false);
   };
 
-  const handleGenerateNFRs = () => {
+  const handleGenerateNFRs = async () => {
     if (!functionalRequirements) {
       showToast('Please enter functional requirements first.', 'warning');
       return;
     }
     setIsNfrLoading(true);
-    showToast('✨ Generating NFRs...', 'info');
-    const prompt = `Based on the following functional requirements, generate a list of key non-functional requirements (NFRs). List each NFR on a new line without any prefixes like bullet points or numbers.\n\nFunctional Requirements:\n${functionalRequirements}`;
-    callGemini(prompt, (text, error) => {
+    showToast('✨ Generating NFRs with AI...', 'info');
+
+    const frList = functionalRequirements.split('\n').filter(fr => fr.trim().length > 0);
+
+    if (frList.length === 0) {
+      showToast('No valid functional requirements entered.', 'warning');
       setIsNfrLoading(false);
-      if (error) {
-        showToast(error, 'error');
-      } else if (text) {
-        setNonFunctionalRequirements(text.split('\n').filter((l) => l.trim() !== ''));
-        showToast('NFRs generated successfully!', 'success');
+      return;
+    }
+
+    const payload = {
+      functional_requirements: frList,
+      domain: "Web App", 
+      project_id: projectId,
+      save_to_db: false, 
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/nfr/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to generate NFRs.');
       }
-    });
+
+      const data = await response.json();
+
+      if (data && data.non_functional_requirements) {
+        setNonFunctionalRequirements(data.non_functional_requirements); 
+        showToast('NFRs generated successfully!', 'success');
+      } else {
+        throw new Error('Invalid response format from NFR generator.');
+      }
+
+    } catch (err) {
+      console.error('NFR generation failed:', err);
+      showToast(err.message || 'An unknown error occurred.', 'error');
+      setNonFunctionalRequirements([]); 
+    } finally {
+      setIsNfrLoading(false);
+    }
   };
 
   const handleRunCode = async () => {
