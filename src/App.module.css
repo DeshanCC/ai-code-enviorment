@@ -5,29 +5,42 @@
 
 .mainGrid {
   display: grid;
-  grid-template-columns: 1fr 2.5fr 1fr; /* Defines the 3 columns */
+  grid-template-columns: 1fr 2.5fr 1fr;
   gap: 1rem;
 }
 
-.developerNameDisplay {
+.userDetailsWrapper {
   text-align: right;
   font-size: 0.9rem;
   color: #c9d1d9;
-  margin-bottom: 0.5rem; /* Space above the actions panel */
-  padding: 0.5rem 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.projectNameDisplay {
+  padding: 0.25rem 0.25rem 0;
+}
+
+.projectNameDisplay strong {
+  color: #a5d6ff; 
+  font-weight: 600;
+}
+
+.developerNameDisplay {
+  padding: 0 0.25rem 0.25rem;
 }
 
 .developerNameDisplay strong {
-  color: #58a6ff; /* A highlight color */
+  color: #58a6ff; 
   font-weight: 600;
 }
 
 /* Responsive layout for smaller screens */
 @media (max-width: 768px) {
   .mainGrid {
-    grid-template-columns: 1fr; /* Stack columns on top of each other */
+    grid-template-columns: 1fr;
   }
-  .developerNameDisplay {
-    text-align: left; /* Adjust alignment for stacked view */
+  
+  .userDetailsWrapper {
+    text-align: left; 
   }
 }

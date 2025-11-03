@@ -26,7 +26,7 @@ export default function DeveloperLogin({ onLogin }) {
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
-        <h2>Welcome, Developer</h2>
+        <h2>Welcome, Developer(Step 1/2)</h2>
         <p>Please enter your name to start your session.</p>
         <form onSubmit={handleSubmit}>
           <input

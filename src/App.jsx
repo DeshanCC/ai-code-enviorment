@@ -6,10 +6,12 @@ import RequirementsPanel from './components/RequirementsPanel';
 import EditorPanel from './components/EditorPanel';
 import ActionsPanel from './components/ActionsPanel';
 import Toast from './components/Toast';
-import DeveloperLogin from './components/DeveloperLogin'; // Import new component
+import DeveloperLogin from './components/DeveloperLogin'; 
+import ProjectLogin from './components/ProjectLogin'; 
 import styles from './App.module.css';
 
 const LANGS = Object.keys(LANGUAGE_VERSIONS);
+const PROJECT_API_BASE = 'http://127.0.0.1:8000';
 
 export default function App() {
   const [toast, setToast] = useState(null);
@@ -26,26 +28,82 @@ export default function App() {
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Output');
   
-  // New state for developer name
+  const [loginStep, setLoginStep] = useState('developer'); 
   const [developerName, setDeveloperName] = useState(null);
+  const [projectName, setProjectName] = useState(null);
+  const [projectId, setProjectId] = useState(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
 
-  // Check session storage on app load
   useEffect(() => {
-    const storedName = sessionStorage.getItem('developerName');
-    if (storedName) {
-      setDeveloperName(storedName);
-    }
-  }, []); // Empty dependency array ensures this runs only once on mount
+    const storedDevName = sessionStorage.getItem('developerName');
+    const storedProjectName = sessionStorage.getItem('projectName');
+    const storedProjectId = sessionStorage.getItem('projectId');
 
-  // Callback function to handle login
-  const handleLogin = useCallback((name) => {
+    if (storedDevName && storedProjectName && storedProjectId) {
+      setDeveloperName(storedDevName);
+      setProjectName(storedProjectName);
+      setProjectId(storedProjectId);
+      setLoginStep('done');
+    } else if (storedDevName) {
+      setDeveloperName(storedDevName);
+      setLoginStep('project');
+    } else {
+      setLoginStep('developer');
+    }
+  }, []);
+
+  const handleDeveloperLogin = useCallback((name) => {
     sessionStorage.setItem('developerName', name);
     setDeveloperName(name);
-  }, []); // This function doesn't need dependencies
+    setLoginStep('project'); 
+  }, []);
+
 
   const showToast = (message, status = 'info') => {
     setToast({ message, status, id: Date.now() });
   };
+
+  const handleProjectLogin = useCallback(async (newProjectName) => {
+    setIsCreatingProject(true);
+
+    const newProjectId = crypto.randomUUID();
+
+    try {
+      const response = await fetch(PROJECT_API_BASE + "/create-project", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: newProjectId,
+          name: newProjectName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showToast(errorData.detail || 'Failed to create project.', 'error');
+        throw new Error(errorData.detail || 'Failed to create project.');
+      }
+
+      sessionStorage.setItem('projectName', newProjectName);
+      sessionStorage.setItem('projectId', newProjectId);
+
+      showToast(`Project "${newProjectName}" created successfully!`, 'success');
+
+      setProjectName(newProjectName);
+      setProjectId(newProjectId);
+      setLoginStep('done');
+
+    } catch (err) {
+      console.error('Project creation failed:', err);
+      if (!err.message.includes('Failed to create project')) {
+        showToast(err.message || 'An unknown network error occurred.', 'error');
+      }
+    } finally {
+      setIsCreatingProject(false);
+    }
+  }, []); 
 
   const onSelectLanguage = (lang) => {
     setLanguage(lang);
@@ -56,16 +114,14 @@ export default function App() {
     setIsLanguageMenuOpen(false);
   };
 
-    const handleGenerateNFRs = () => {
+  const handleGenerateNFRs = () => {
     if (!functionalRequirements) {
       showToast('Please enter functional requirements first.', 'warning');
       return;
     }
     setIsNfrLoading(true);
-    showToast('✨ Generating NFRs with Gemini...', 'info');
-
+    showToast('✨ Generating NFRs...', 'info');
     const prompt = `Based on the following functional requirements, generate a list of key non-functional requirements (NFRs). List each NFR on a new line without any prefixes like bullet points or numbers.\n\nFunctional Requirements:\n${functionalRequirements}`;
-
     callGemini(prompt, (text, error) => {
       setIsNfrLoading(false);
       if (error) {
@@ -82,7 +138,6 @@ export default function App() {
     try {
       setIsLoading(true);
       const data = await executeCode(language, code);
-      // Piston typically returns run or output on its object; adjust as needed
       const run = data.run || {};
       const out = run.output ?? run.stdout ?? '';
       const stderr = run.stderr ?? run.time ?? '';
@@ -141,12 +196,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [code]);
 
-  // Gating check: If no developer name, show the login modal
-  if (!developerName) {
-    return <DeveloperLogin onLogin={handleLogin} />;
+  if (loginStep === 'developer') {
+    return <DeveloperLogin onLogin={handleDeveloperLogin} />;
   }
 
-  // Once logged in, show the main app
+  if (loginStep === 'project') {
+    return (
+      <ProjectLogin
+        onLogin={handleProjectLogin}
+        isLoading={isCreatingProject}
+      />
+    );
+  }
+
   return (
     <div className={styles.appContainer}>
       {toast && <Toast message={toast.message} status={toast.status} onClose={() => setToast(null)} />}
@@ -167,13 +229,17 @@ export default function App() {
           isLanguageMenuOpen={isLanguageMenuOpen}
           setIsLanguageMenuOpen={setIsLanguageMenuOpen}
           languages={LANGS}
-          showToast={showToast} // Pass showToast to EditorPanel
+          showToast={showToast}
         />
 
-        {/* Wrapper div for the 3rd column to include the developer name */}
         <div>
-          <div className={styles.developerNameDisplay}>
-            Developer: <strong>{developerName}</strong>
+          <div className={styles.userDetailsWrapper}>
+            <div className={styles.projectNameDisplay}>
+              Project: <strong>{projectName}</strong>
+            </div>
+            <div className={styles.developerNameDisplay}>
+              Developer: <strong>{developerName}</strong>
+            </div>
           </div>
           <ActionsPanel
             handleCommit={handleCommit}
