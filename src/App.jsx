@@ -34,6 +34,7 @@ export default function App() {
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [isCalculatingRisk, setIsCalculatingRisk] = useState(false);
 
   useEffect(() => {
     const storedDevName = sessionStorage.getItem('developerName');
@@ -219,15 +220,49 @@ export default function App() {
     }
   };
 
-  const handleCalculateRisk = () => {
-    showToast('Triggering Risk Control Agent...', 'info');
-    setTimeout(() => {
-      setSuggestions([
-        "Risk Identified: High complexity in the main function may lead to maintenance issues.",
-        "Risk Identified: Lack of input validation poses a security risk.",
-      ]);
+const handleCalculateRisk = async () => {
+    if (isCalculatingRisk) return;
+    setIsCalculatingRisk(true);
+    showToast('Calculating project risk...', 'info');
+
+    const payload = {
+      project_id: projectId,
+      language: language,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/assess-risks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Risk assessment failed.');
+      }
+
+      const data = await response.json();
+      const assessment = data.risk_assessment;
+
+      showToast('Risk assessment complete!', 'success');
+
+      const formattedResponse = [
+        `<strong>Release decision - ${assessment.release_decision}</strong>`,
+        assessment.rationale
+      ];
+      
+      setSuggestions(formattedResponse);
       setActiveTab('Suggestions');
-    }, 1500);
+
+    } catch (err) {
+      console.error('Risk assessment failed:', err);
+      showToast(err.message || 'An unknown error occurred.', 'error');
+    } finally {
+      setIsCalculatingRisk(false);
+    }
   };
 
   const handleMerge = async () => {
@@ -361,6 +396,7 @@ export default function App() {
             isLoading={isLoading} 
             isCommitting={isCommitting}
             isMerging={isMerging}
+            isCalculatingRisk={isCalculatingRisk}
             isError={isError}
             output={output}
             suggestions={suggestions}
