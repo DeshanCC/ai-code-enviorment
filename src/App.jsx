@@ -20,7 +20,7 @@ export default function App() {
   const [code, setCode] = useState(CODE_SNIPPETS.javascript);
   const [language, setLanguage] = useState('javascript');
   const [output, setOutput] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); 
   const [isError, setIsError] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [metrics, setMetrics] = useState([]);
@@ -33,6 +33,7 @@ export default function App() {
   const [projectId, setProjectId] = useState(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
 
   useEffect(() => {
     const storedDevName = sessionStorage.getItem('developerName');
@@ -123,7 +124,7 @@ export default function App() {
       functional_requirements: frList,
       domain: "Web App", 
       project_id: projectId,
-      save_to_db: false, 
+      save_to_db: true, 
     };
     try {
       const response = await fetch(`${API_BASE_URL}/nfr/generate`, {
@@ -179,10 +180,7 @@ export default function App() {
     setIsCommitting(true);
     showToast('Committing and starting code review...', 'info');
 
-    // (1) Get parent commit ID from session storage
     const parentCommitId = sessionStorage.getItem('lastCommitId') || null;
-    
-    // (2) Generate new commit ID
     const newCommitId = crypto.randomUUID();
 
     const payload = {
@@ -197,9 +195,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/agents/review`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -207,22 +203,14 @@ export default function App() {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Commit failed.');
       }
-
       const data = await response.json();
-
-      // Show success toast
       showToast('Commit successful! Review suggestions added.', 'success');
-
-      // Format suggestions for the UI
       const formattedSuggestions = data.llm_review_suggestions.map(s => (
         `[L${s.line_start}-${s.line_end} | ${s.severity}]: ${s.suggestion}`
       ));
-
       setSuggestions(formattedSuggestions);
       setActiveTab('Suggestions');
-      
       sessionStorage.setItem('lastCommitId', newCommitId);
-
     } catch (err) {
       console.error('Commit failed:', err);
       showToast(err.message || 'An unknown error occurred.', 'error');
@@ -242,10 +230,64 @@ export default function App() {
     }, 1500);
   };
 
-  const handleMerge = () => {
-    showToast('Merge successful!', 'success');
-    setSuggestions([]);
-    sessionStorage.removeItem('lastCommitId');
+
+  const handleMerge = async () => {
+    if (isMerging) return;
+
+    // (1) Check if user has committed
+    const parentCommitId = sessionStorage.getItem('lastCommitId');
+    if (!parentCommitId) {
+      showToast("You must commit your code at least once before merging.", "warning");
+      return;
+    }
+
+    setIsMerging(true);
+    showToast('Merging code and classifying reviews...', 'info');
+
+    // Create a new "merge commit" ID
+    const newMergeCommitId = crypto.randomUUID();
+
+    const payload = {
+      parent_commit_id: parentCommitId,
+      commit_id: newMergeCommitId,
+      project_id: projectId,
+      developer_name: developerName,
+      code_text: code,
+      language: language,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/classify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Merge failed.');
+      }
+
+      const data = await response.json();
+      showToast('Merge successful! Review classifications complete.', 'success');
+
+      const formattedClassifications = data.classifications.map(c => (
+        `**${c.classification.toUpperCase()}**: ${c.rationale}`
+      ));
+      
+      setSuggestions(formattedClassifications);
+      setActiveTab('Suggestions');
+
+      sessionStorage.removeItem('lastCommitId');
+
+    } catch (err) {
+      console.error('Merge failed:', err);
+      showToast(err.message || 'An unknown error occurred.', 'error');
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   useEffect(() => {
@@ -314,6 +356,7 @@ export default function App() {
             handleRunCode={handleRunCode}
             isLoading={isLoading} 
             isCommitting={isCommitting}
+            isMerging={isMerging}
             isError={isError}
             output={output}
             suggestions={suggestions}

@@ -1,4 +1,3 @@
-// src/components/ActionsPanel.jsx
 import React from 'react';
 import styles from './ActionsPanel.module.css';
 
@@ -11,6 +10,7 @@ export default function ActionsPanel({
   handleRunCode,
   isLoading,
   isCommitting,
+  isMerging, 
   isError,
   output,
   suggestions,
@@ -31,11 +31,18 @@ export default function ActionsPanel({
         <button 
           onClick={handleCommit} 
           className={`${styles.button} ${styles.commitButton}`}
-          disabled={isCommitting}
+          disabled={isCommitting || isMerging} // Also disable commit while merging
         >
           {isCommitting ? 'Committing...' : 'Commit'}
         </button>
-        <button onClick={handleMerge} className={`${styles.button} ${styles.mergeButton}`}>Merge</button>
+        {/* --- Button is updated --- */}
+        <button 
+          onClick={handleMerge} 
+          className={`${styles.button} ${styles.mergeButton}`}
+          disabled={isCommitting || isMerging} // Disable while committing or merging
+        >
+          {isMerging ? 'Merging...' : 'Merge'}
+        </button>
       </div>
       <button onClick={handleCalculateRisk} className={`${styles.button} ${styles.riskButton}`}>Calculate Risk</button>
 
@@ -60,9 +67,16 @@ export default function ActionsPanel({
              <div className={styles.outputArea}>
               {suggestions.length > 0 ? (
                 <ul>
-                  {suggestions.map((sug, i) => <li key={i}>💡 {sug}</li>)}
+                  {/* Updated to handle formatted strings from both commit and merge */}
+                  {suggestions.map((sug, i) => (
+                    <li 
+                      key={i} 
+                      // Render the bold markdown text as HTML
+                      dangerouslySetInnerHTML={{ __html: `💡 ${sug}` }} 
+                    />
+                  ))}
                 </ul>
-              ) : <p>Suggestions from agents will appear here.</p>}
+              ) : <p>Commit to see AI code review suggestions.</p>}
             </div>
           )}
         </div>
