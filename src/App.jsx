@@ -230,11 +230,9 @@ export default function App() {
     }, 1500);
   };
 
-
   const handleMerge = async () => {
     if (isMerging) return;
 
-    // (1) Check if user has committed
     const parentCommitId = sessionStorage.getItem('lastCommitId');
     if (!parentCommitId) {
       showToast("You must commit your code at least once before merging.", "warning");
@@ -242,9 +240,8 @@ export default function App() {
     }
 
     setIsMerging(true);
-    showToast('Merging code and classifying reviews...', 'info');
+    showToast('Merging code and starting classification...', 'info');
 
-    // Create a new "merge commit" ID
     const newMergeCommitId = crypto.randomUUID();
 
     const payload = {
@@ -256,38 +253,45 @@ export default function App() {
       language: language,
     };
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/classify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+    let requestError = null;
 
+    fetch(`${API_BASE_URL}/classify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    .then(async response => { 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Merge failed.');
+        const errorData = await response.json().catch(() => ({ detail: 'Merge failed with HTTP error.' }));
+        requestError = new Error(errorData.detail || 'Merge failed.');
       }
+    })
+    .catch(err => { // Catch network errors
+      requestError = err;
+    });
 
-      const data = await response.json();
-      showToast('Merge successful! Review classifications complete.', 'success');
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const formattedClassifications = data.classifications.map(c => (
-        `**${c.classification.toUpperCase()}**: ${c.rationale}`
-      ));
-      
-      setSuggestions(formattedClassifications);
-      setActiveTab('Suggestions');
-
-      sessionStorage.removeItem('lastCommitId');
-
-    } catch (err) {
-      console.error('Merge failed:', err);
-      showToast(err.message || 'An unknown error occurred.', 'error');
-    } finally {
-      setIsMerging(false);
+    if (requestError) {
+      console.error('Merge failed:', requestError);
+      showToast(requestError.message || 'An unknown error occurred.', 'error');
+      setIsMerging(false); 
+      return;
     }
+
+    // No error flagged, proceed with success
+    showToast('Merge request sent! Classifications are processing in the background.', 'success');
+    
+    setSuggestions([
+      "Merge accepted. Your review classifications are being processed."
+    ]);
+    setActiveTab('Suggestions'); 
+
+    sessionStorage.removeItem('lastCommitId');
+
+    setIsMerging(false);
   };
 
   useEffect(() => {
